@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>DERP browser client probe</title></head>
+<body>
+<script src="wasm_exec.js"></script>
+<script type="module">
+window.results = [];
+window.derpBrowserLog = (msg) => { window.results.push(["log", msg]); };
+window.derpBrowserStatus = (kind, detail) => { window.results.push([kind, detail]); };
+const go = new Go();
+const started = performance.now();
+const { instance } = await WebAssembly.instantiateStreaming(fetch("derp-browser.wasm"), go.importObject);
+go.run(instance);
+window.__wasmInitMs = performance.now() - started;
+window.__goMem = go;
+window.__goInst = instance;
+</script>
+</body>
+</html>

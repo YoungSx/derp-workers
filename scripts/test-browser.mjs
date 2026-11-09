@@ -1,0 +1,127 @@
+// Runs the js/wasm browser DERP client suite (cmd/derp-browser-test) in headless
+// Chromium. Covers: handshake, ServerKey, ping/pong, bidirectional packet
+// forwarding, PeerGone on disco to a closed peer, disconnect and reconnect.
+// Also reports WASM init time and memory.
+//
+// Without CF_DERP_BASE_URL it spawns `wrangler dev --local`; with it (e.g.
+// https://name.subdomain.workers.dev) it runs against a deployed worker.
+import { spawn } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join } from "node:path";
+import { launch as launchBrowser } from "puppeteer-core";
+
+const repo = new URL("..", import.meta.url).pathname;
+const probeDir = join(repo, "cmd", "derp-browser-test");
+const wasmPath = join(probeDir, "derp-browser.wasm");
+const derpPort = 8797;
+const staticPort = 8899;
+const browserBin = process.env.BROWSER_BIN ?? "/snap/bin/chromium";
+const remoteBase = process.env.CF_DERP_BASE_URL
+  ? new URL(process.env.CF_DERP_BASE_URL)
+  : null;
+const remoteProbeURL = remoteBase ? new URL("/derp/probe", remoteBase).toString() : null;
+const remoteWsURL = remoteBase
+  ? new URL("/derp", remoteBase).toString().replace(/^http/, "ws")
+  : null;
+
+function run(command, args, timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let result = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error(`Timed out: ${command} ${args.join(" ")}`));
+    }, timeoutMs);
+    child.stdout.on("data", (chunk) => { result += chunk; });
+    child.stderr.on("data", (chunk) => { result += chunk; });
+    child.on("error", (error) => { clearTimeout(timer); reject(error); });
+    child.on("exit", (code) => {
+      clearTimeout(timer);
+      code === 0 ? resolve(result) : reject(new Error(`${command} exited ${code}:\n${result}`));
+    });
+  });
+}
+
+const mimeTypes = { ".html": "text/html", ".js": "text/javascript", ".wasm": "application/wasm" };
+function serveStatic() {
+  const server = createServer(async (req, res) => {
+    const file = join(probeDir, req.url === "/" ? "probe.html" : req.url);
+    try {
+      const data = await readFile(file);
+      res.writeHead(200, { "Content-Type": mimeTypes[extname(file)] ?? "application/octet-stream" });
+      res.end(data);
+    } catch {
+      res.writeHead(404).end();
+    }
+  });
+  return new Promise((resolve) => server.listen(staticPort, "127.0.0.1", () => resolve(server)));
+}
+
+const staticServer = await serveStatic();
+let wrangler = null;
+let wranglerOutput = "";
+if (!remoteBase) {
+  wrangler = spawn("npx", ["wrangler", "dev", "--local", "--port", String(derpPort), "--inspector-port", "0"], {
+    stdio: ["ignore", "pipe", "pipe"], detached: true,
+  });
+  wrangler.stdout.on("data", (chunk) => { wranglerOutput += chunk; });
+  wrangler.stderr.on("data", (chunk) => { wranglerOutput += chunk; });
+}
+
+async function probeEndpoint() {
+  const response = await fetch(remoteProbeURL ?? `http://127.0.0.1:${derpPort}/derp/probe`);
+  const text = await response.text();
+  try { return JSON.parse(text); } catch { throw new Error(`Probe returned non-JSON (${response.status}): ${text.slice(0, 500)}\n${wranglerOutput}`); }
+}
+
+let exitCode = 1;
+try {
+  console.log(await run("bash", ["scripts/build-wasm.sh"]));
+  await new Promise((resolve, reject) => {
+    const child = spawn("go", ["build", "-o", wasmPath, "./cmd/derp-browser-test"], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, GOOS: "js", GOARCH: "wasm" },
+    });
+    let out = "";
+    child.stdout.on("data", (c) => { out += c; });
+    child.stderr.on("data", (c) => { out += c; });
+    child.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`browser probe build failed: ${out}`)));
+  });
+  await delay(100);
+  let probe;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    if (wrangler?.exitCode !== null && wrangler?.exitCode !== undefined) throw new Error(`wrangler exited (${wrangler.exitCode}):\n${wranglerOutput}`);
+    try {
+      probe = await probeEndpoint();
+      if (probe.ready) break;
+    } catch {}
+    await delay(500);
+  }
+  if (!probe?.ready) throw new Error(`Worker did not start:\n${wranglerOutput}`);
+
+  const browser = await launchBrowser({ executablePath: browserBin, args: ["--no-sandbox", "--disable-dev-shm-usage"] });
+  const page = await browser.newPage();
+  page.on("console", (message) => { if (message.type() === "error" && !message.text().includes("favicon")) console.log("console:", message.text().slice(0, 300)); });
+  await page.goto(`http://127.0.0.1:${staticPort}/probe.html`);
+  await page.waitForFunction(() => window.derpBrowserRun, { timeout: 20000 });
+  await page.evaluate((key) => window.derpBrowserWantKey(key), probe.serverKey.replace("nodekey:", ""));
+  await page.evaluate((wsURL) => window.derpBrowserRun(wsURL, ""), remoteWsURL ?? `ws://127.0.0.1:${derpPort}/derp`);
+  await page.waitForFunction(() => window.results.some(([kind]) => kind === "ok" || kind === "error"), { timeout: 90000, polling: 250 });
+  const results = await page.evaluate(() => window.results);
+  const metrics = await page.evaluate(() => ({ initMs: window.__wasmInitMs, memBytes: window.__goInst.exports.mem.buffer.byteLength }));
+  await browser.close();
+
+  console.log(JSON.stringify({ browserWasm: metrics, serverInitMs: probe.initializationMs, results }, null, 2));
+  if (!results.some(([kind]) => kind === "ok")) {
+    throw new Error("browser WASM client suite failed");
+  }
+  exitCode = 0;
+} catch (error) {
+  console.error(String(error));
+} finally {
+  staticServer.close();
+  if (wrangler) { try { process.kill(-wrangler.pid, "SIGKILL"); } catch {} }
+}
+process.exit(exitCode);
