@@ -22,9 +22,9 @@ const remoteBase = process.env.CF_DERP_BASE_URL
   ? new URL(process.env.CF_DERP_BASE_URL)
   : null;
 const remoteProbeURL = remoteBase ? new URL("/derp/probe", remoteBase).toString() : null;
-const remoteWsURL = remoteBase
-  ? new URL("/derp", remoteBase).toString().replace(/^http/, "ws")
-  : null;
+// derphttp.NewClient only accepts http(s) URLs (or URLs with explicit
+// ports); dialWebsocket derives the ws(s) scheme itself.
+const remoteWsURL = remoteBase ? new URL("/derp", remoteBase).toString() : null;
 
 function run(command, args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
