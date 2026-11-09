@@ -1,0 +1,6 @@
+/artifacts/
+/src/wasm_exec.js
+/cmd/derp-browser-test/derp-browser.wasm
+/cmd/derp-browser-test/wasm_exec.js
+/node_modules/
+/.wrangler/
