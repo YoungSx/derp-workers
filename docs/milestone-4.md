@@ -57,6 +57,10 @@ All numbers are from local `wrangler dev --local` (workerd) on the test machine;
 - Durable Object Duration billing under sustained connections (still ~10,800 GB-s/day at 128 MiB always-on vs. 13,000 free).
 - Cloudflare's WebSocket message size limits in production (local `workerd` accepted the 64 KiB frames the browser stack then rejected client-side).
 
+## Deployed end-to-end validation (CI)
+
+`.github/workflows/validate.yml` runs on every push to `main`: it deploys a temporary worker to a real Cloudflare account (`wrangler deploy --name derp-workers-validate`), runs the native official-client suite and the browser WASM client suite against the deployed `workers.dev` URL, then deletes the worker. This repeats the deployed-worker validation on a clean deployment each run.
+
 ## Artifacts
 
 - `cmd/derp-browser-test/` — browser WASM client suite (Go source + `probe.html`).
