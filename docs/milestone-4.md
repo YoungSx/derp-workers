@@ -25,9 +25,17 @@ Run with `npm run test:browser` (headless Chromium; `BROWSER_BIN` overrides the 
 
 ## Upstream finding: browser clients cannot receive frames over 32,768 bytes
 
-`coder/websocket`'s js backend defaults to a 32,768-byte message read limit (`ws_js.go` `init()`), and neither `derphttp`, `net/wsconn`, nor any Tailscale caller raises it. A browser DERP client therefore dies with `websocket: message too big` on any single WebSocket message above 32,768 bytes. Native (non-browser) clients use `wsconn`'s non-js backend where `netconn.go` calls `SetReadLimit(-1)` and the server's 64 KiB frames deliver fine.
+`coder/websocket`'s js backend defaults to a 32,768-byte message read limit (`ws_js.go`), and neither `derphttp` nor `net/wsconn` raises it on the js path. A browser DERP client therefore dies with `websocket: message too big` on any single WebSocket message above 32,768 bytes. Native (non-browser) clients are unaffected: `coder/websocket`'s own `netconn.go` calls `SetReadLimit(-1)` on the non-js path.
 
-Real WireGuard packets are ~1.5 KB, so ordinary tailnet traffic stays far below the limit. But the PoC's previous "8 × 65,536-byte" benchmark overstates what browser clients can receive; the browser benchmark uses 16 KiB packets. Any deployment intending browser clients should cap outgoing frames at 32 KiB or send upstream a patch lifting the js read limit.
+The fix is one line in `tailscale.com/derp/derphttp/websocket.go`, verified against a deployed worker (64 KiB frames deliver with it; `message too big: read limited at 32768 bytes` without it):
+
+```diff
+ 	log.Printf("websocket: connected to %v", urlStr)
++	c.SetReadLimit(-1)
+ 	netConn := wsconn.NetConn(context.Background(), c, websocket.MessageBinary, urlStr)
+```
+
+Until it lands upstream, real WireGuard packets (~1.5 KB) stay far below the limit; the browser benchmark uses 16 KiB packets. A deployment intending browser clients should cap outgoing frames at 32 KiB or carry this patch.
 
 ## Resource measurements (local dev runtime, not production CPU billing)
 
