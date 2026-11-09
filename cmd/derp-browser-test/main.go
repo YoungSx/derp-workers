@@ -195,6 +195,18 @@ func run(url string, opts string) {
 	}
 	defer b.Close()
 	rb = startReceiver(b)
+	if err := b.SendPing(ping); err != nil {
+		status.Invoke("error", fmt.Sprintf("B SendPing after reconnect: %v", err))
+		return
+	}
+	if _, err := rb.recv(5*time.Second, func(m derp.ReceivedMessage) bool {
+		pong, ok := m.(derp.PongMessage)
+		return ok && pong == derp.PongMessage(ping)
+	}); err != nil {
+		status.Invoke("error", fmt.Sprintf("B pong after reconnect: %v", err))
+		return
+	}
+	logf("B ping/pong after reconnect ok")
 	if err := a.Send(bPub, payload); err != nil {
 		status.Invoke("error", fmt.Sprintf("A Send after reconnect: %v", err))
 		return
