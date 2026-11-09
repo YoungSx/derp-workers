@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "derp-workers",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-09",
+  "durable_objects": {
+    "bindings": [{ "name": "DERP_REGION", "class_name": "DerpRegion" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DerpRegion"] }]
+}

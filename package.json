@@ -1,0 +1,17 @@
+{
+  "name": "derp-workers",
+  "private": true,
+  "scripts": {
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "dev": "npm run build:wasm && wrangler dev --local",
+    "test:wasm-worker": "npm run build:wasm && node scripts/test-worker.mjs",
+    "test:browser": "node scripts/test-browser.mjs",
+    "test:cloudflare": "npm run build:wasm && node scripts/test-worker.mjs --remote"
+  },
+  "devDependencies": {
+    "wrangler": "4.158.0"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.16.0"
+  }
+}
