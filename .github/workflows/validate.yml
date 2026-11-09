@@ -44,10 +44,12 @@ jobs:
 
       - name: Deploy temporary worker
         id: deploy
+        env:
+          WRANGLER_LOG: debug
         run: |
-          DEPLOY_LOG=$(npx wrangler deploy --name derp-workers-validate)
-          echo "$DEPLOY_LOG"
-          URL=$(echo "$DEPLOY_LOG" | grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' | head -1)
+          set -o pipefail
+          npx wrangler deploy --name derp-workers-validate 2>&1 | tee /tmp/deploy.log
+          URL=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)
           if [ -z "$URL" ]; then echo "no workers.dev URL in deploy output" >&2; exit 1; fi
           echo "CF_DERP_BASE_URL=$URL" >> "$GITHUB_ENV"
 
