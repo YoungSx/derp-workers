@@ -38,10 +38,12 @@ jobs:
 
       - name: Install Chrome
         run: |
-          npx --yes @puppeteer/browsers install chrome@stable --install-deps --path "$RUNNER_TEMP/chrome" > /dev/null
+          # ubuntu-latest ships Chrome's shared libraries; --install-deps would need root
+          npx --yes @puppeteer/browsers install chrome@stable --path "$RUNNER_TEMP/chrome" > /dev/null
           echo "BROWSER_BIN=$(find "$RUNNER_TEMP/chrome" -type f -name chrome | head -1)" >> "$GITHUB_ENV"
 
       - name: Deploy temporary worker
+        id: deploy
         run: |
           DEPLOY_LOG=$(npx wrangler deploy --name derp-workers-validate)
           echo "$DEPLOY_LOG"
@@ -56,5 +58,5 @@ jobs:
         run: node scripts/test-browser.mjs
 
       - name: Delete temporary worker
-        if: always()
+        if: always() && steps.deploy.outcome == 'success'
         run: npx wrangler delete derp-workers-validate --force
