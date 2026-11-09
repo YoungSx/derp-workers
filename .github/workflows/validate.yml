@@ -1,0 +1,60 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: validate
+  cancel-in-progress: true
+
+jobs:
+  deployed-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build server and browser WASM
+        run: |
+          npm run build:wasm
+          GOOS=js GOARCH=wasm go build -trimpath -o cmd/derp-browser-test/derp-browser.wasm ./cmd/derp-browser-test
+
+      - name: Install Chrome
+        run: |
+          npx --yes @puppeteer/browsers install chrome@stable --install-deps --path "$RUNNER_TEMP/chrome" > /dev/null
+          echo "BROWSER_BIN=$(find "$RUNNER_TEMP/chrome" -type f -name chrome | head -1)" >> "$GITHUB_ENV"
+
+      - name: Deploy temporary worker
+        run: |
+          DEPLOY_LOG=$(npx wrangler deploy --name derp-workers-validate)
+          echo "$DEPLOY_LOG"
+          URL=$(echo "$DEPLOY_LOG" | grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' | head -1)
+          if [ -z "$URL" ]; then echo "no workers.dev URL in deploy output" >&2; exit 1; fi
+          echo "CF_DERP_BASE_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Native client suite
+        run: node scripts/test-cloudflare.mjs
+
+      - name: Browser WASM client suite
+        run: node scripts/test-browser.mjs
+
+      - name: Delete temporary worker
+        if: always()
+        run: npx wrangler delete derp-workers-validate --force
