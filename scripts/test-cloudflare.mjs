@@ -104,7 +104,16 @@ async function getProbe() {
   return body;
 }
 
-const probe = await getProbe();
+// A just-deployed worker's workers.dev route can 404 for a few seconds
+// while it propagates; retry until it is live.
+const deadline = Date.now() + 60000;
+let probe;
+for (;;) {
+  try { probe = await getProbe(); break; } catch (error) {
+    if (Date.now() > deadline) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+}
 const badSubprotocolStatus = await rawUpgradeStatus("other");
 if (badSubprotocolStatus !== 400) throw new Error(`Expected bad subprotocol 400, got ${badSubprotocolStatus}`);
 const unknownRoute = await fetch(new URL("/nope", base));
