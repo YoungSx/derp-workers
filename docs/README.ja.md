@@ -31,7 +31,7 @@ npm run test:browser       # ヘッドレス Chromium 上の公式ブラウザ W
 自分でデプロイした worker に対してテストするには:
 
 ```sh
-npx wrangler deploy
+npx wrangler deploy   # または:npx cf deploy(新しい統合 Cloudflare CLI、ベータ版)
 CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```

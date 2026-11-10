@@ -33,7 +33,7 @@ npm run test:browser       # official browser WASM client suite in headless Chro
 To test against your own deployed worker:
 
 ```sh
-npx wrangler deploy
+npx wrangler deploy   # or: npx cf deploy (new unified Cloudflare CLI, beta)
 CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```

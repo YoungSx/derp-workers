@@ -46,3 +46,5 @@ One Durable Object hosts the entire relay. Everything else exists to hand the of
 ## Deployment notes
 
 The server key is compiled into the wasm from deterministic test data (`cmd/derp-wasm/main.go`). For real use, generate a `key.NodePrivate` hex string and inject it at build time (e.g. via `-ldflags` or a small generator that writes the constant) — never ship a known key.
+
+Two CLIs are supported: `wrangler deploy` (config in `wrangler.jsonc`) and the new unified `cf` CLI (config in `cloudflare.config.ts`; still in beta). They bind the Durable Object differently — `wrangler.jsonc` exposes it as `env.DERP_REGION`, while the `cf` config's `exports` model exposes it as `ctx.exports.DerpRegion` — so `src/index.js` resolves whichever is present. The DO class also extends `DurableObject` from `cloudflare:workers`, which the `cf` config model requires.

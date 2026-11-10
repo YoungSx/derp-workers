@@ -4,3 +4,4 @@
 /cmd/derp-browser-test/wasm_exec.js
 /node_modules/
 /.wrangler/
+.cloudflare/

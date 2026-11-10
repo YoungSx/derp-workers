@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 import "./wasm_exec.js";
 import wasmModule from "../artifacts/derp.wasm";
 
@@ -36,9 +37,9 @@ function startDerpServer() {
   return goRuntimePromise;
 }
 
-export class DerpRegion {
-  constructor(state) {
-    this.state = state;
+export class DerpRegion extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
     this.sockets = new Map();
   }
 
@@ -128,14 +129,17 @@ function routeToRegion(path) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
     if (path === "/derp/regions") {
       return Response.json({ regions: DERP_REGIONS });
     }
     const route = routeToRegion(path);
     if (route.error) return new Response("Not found", { status: 404 });
-    const id = env.DERP_REGION.idFromName(route.region);
-    return env.DERP_REGION.get(id).fetch(new URL(route.path, request.url), request);
+    // wrangler.jsonc binds the DO namespace as env.DERP_REGION; the cf CLI's
+    // cloudflare.config.ts exposes it as a loopback export instead.
+    const region = env.DERP_REGION ?? ctx?.exports?.DerpRegion;
+    const id = region.idFromName(route.region);
+    return region.get(id).fetch(new URL(route.path, request.url), request);
   },
 };

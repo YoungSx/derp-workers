@@ -31,7 +31,7 @@ npm run test:browser       # 無頭 Chromium 中的官方瀏覽器 WASM 用戶�
 測試你自己部署的 worker:
 
 ```sh
-npx wrangler deploy
+npx wrangler deploy   # 或:npx cf deploy(新版統一 Cloudflare CLI,測試版)
 CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```
