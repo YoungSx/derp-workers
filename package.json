@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build:wasm": "bash scripts/build-wasm.sh",
+    "deploy": "npm run build:wasm && cf deploy",
     "dev": "npm run build:wasm && cf dev",
     "test:wasm-worker": "npm run build:wasm && node scripts/test-worker.mjs",
     "test:browser": "node scripts/test-browser.mjs",
