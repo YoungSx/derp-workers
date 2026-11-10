@@ -16,9 +16,13 @@ import (
 	"tailscale.com/types/key"
 )
 
+// serverKeyHex is overridden at build time via
+//   go build -ldflags "-X main.serverKeyHex=<64 hex chars>"
+// The default is deterministic test data: any relay built with it can be
+// impersonated, so deployments MUST inject their own key.
+var serverKeyHex = "0101010101010101010101010101010101010101010101010101010101010101"
+
 func main() {
-	// This deterministic key only proves server construction in the local PoC.
-	const serverKeyHex = "0101010101010101010101010101010101010101010101010101010101010101"
 	privateKey, err := key.ParseNodePrivateUntyped(mem.S(serverKeyHex))
 	if err != nil {
 		panic(err)
@@ -94,6 +98,7 @@ func main() {
 	})
 
 	js.Global().Set("derpServerKey", privateKey.Public().String())
+	js.Global().Set("derpServerKeyIsTestKey", serverKeyHex == "0101010101010101010101010101010101010101010101010101010101010101")
 	js.Global().Set("derpServerReady", server != nil)
 	wake := make(chan struct{})
 	js.Global().Get("derpWasmNotify").Invoke()

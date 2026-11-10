@@ -47,7 +47,14 @@ export class DerpRegion {
     if (path === "/derp/probe") {
       try {
         const { serverKey, initializationMs } = await startDerpServer();
-        return Response.json({ ready: true, serverKey, initializationMs, connections: globalThis.derpServerConnectionCount(), goMem: globalThis.derpServerMemStats() });
+        return Response.json({
+          ready: true,
+          serverKey,
+          testKey: globalThis.derpServerKeyIsTestKey,
+          initializationMs,
+          connections: globalThis.derpServerConnectionCount(),
+          goMem: globalThis.derpServerMemStats(),
+        });
       } catch (error) {
         return Response.json({ ready: false, error: String(error) }, { status: 500 });
       }
