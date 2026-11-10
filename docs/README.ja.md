@@ -31,7 +31,7 @@ npm run test:browser       # ヘッドレス Chromium 上の公式ブラウザ W
 自分でデプロイした worker に対してテストするには:
 
 ```sh
-npx cf deploy         # または:npx wrangler deploy
+npm run deploy        # wasm をビルドして cf deploy(または:npx wrangler deploy)
 CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```
