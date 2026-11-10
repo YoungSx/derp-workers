@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 # Local-only validation: the full protocol suites run against workerd (cf dev).
-# No Cloudflare account interaction, no secrets. Deployed-path checks live in
-# deployed-validation.yml, run on demand.
+# No Cloudflare account interaction, no secrets. The deployed-path checks live
+# in deploy.yml, which is the only workflow allowed to touch live resources.
 jobs:
   local-suites:
     runs-on: ubuntu-latest
