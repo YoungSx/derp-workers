@@ -53,7 +53,7 @@ docs/                  里程碑报告与测量数据
 
 - **浏览器客户端收不了超过 32 KiB 的帧。** 这是 `tailscale.com` WebSocket 包装层的上游 bug([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) 已修复该问题);在合入之前,真实 tailnet 流量(约 1.5 KB 的包)不受影响。详见 [M4](milestone-4.md)。
 - **仓库里的服务端密钥是确定性测试数据。** 直接部署会让任何人都能冒充该中继。任何真实用途前请生成自己的密钥。
-- 单区域、单 Durable Object;不是生产级 mesh。
+- 各区域相互独立:每个区域有自己的 peer 注册表,一次通信的两个 peer 必须使用同一区域。暂无跨区域转发。
 
 ## 文档
 

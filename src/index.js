@@ -109,11 +109,33 @@ export class DerpRegion {
   }
 }
 
+// DERP regions exposed by this deployment. Each region is its own Durable
+// Object instance (own Go/WASM server, own peer registry); clients pick the
+// closest one and both peers of a conversation must use the same region.
+const DERP_REGIONS = ["region-0"];
+
+function routeToRegion(path) {
+  if (path === "/derp" || path === "/derp/probe") return { region: "region-0", path };
+  const match = path.match(/^\/derp\/regions\/([^/]+)(\/.*)?$/);
+  if (match) {
+    const [, region, rest = ""] = match;
+    if (!DERP_REGIONS.includes(region)) return { error: 404 };
+    // region-0 keeps the canonical /derp paths so existing clients are unchanged
+    const suffix = rest === "/probe" ? "/derp/probe" : "/derp";
+    return { region, path: suffix };
+  }
+  return { error: 404 };
+}
+
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
-    if (path !== "/derp" && path !== "/derp/probe") return new Response("Not found", { status: 404 });
-    const id = env.DERP_REGION.idFromName("region-0");
-    return env.DERP_REGION.get(id).fetch(request);
+    if (path === "/derp/regions") {
+      return Response.json({ regions: DERP_REGIONS });
+    }
+    const route = routeToRegion(path);
+    if (route.error) return new Response("Not found", { status: 404 });
+    const id = env.DERP_REGION.idFromName(route.region);
+    return env.DERP_REGION.get(id).fetch(new URL(route.path, request.url), request);
   },
 };

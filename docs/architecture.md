@@ -30,6 +30,8 @@ One Durable Object hosts the entire relay. Everything else exists to hand the of
 
 **The bridge — `src/index.js`.** The DO creates a `WebSocketPair` per client, forwards binary messages into `derpSocketRead` (enforcing DERP's framing rules: binary-only, ≤64 KiB+overhead, queue overflow → close 1011/1009/1003), and returns `derpSocketSend`'s output through the other half. The Go runtime is instantiated once per isolate and shared by all connections; `/derp/probe` reports its state.
 
+**Regions.** Each name in `DERP_REGIONS` maps to its own Durable Object instance (own Go runtime and peer registry). Clients hit `/derp/regions` to list them and connect at `/derp/regions/<name>` — or the canonical `/derp`, which is `region-0`. Both peers of a conversation must use the same region, since a region's registry only knows its own clients.
+
 ## Why this shape
 
 - **Durable Object, not plain Worker:** DERP needs connection state — two clients must land on the same process for the server's peer registry to forward between them. A single DO gives that for free.
