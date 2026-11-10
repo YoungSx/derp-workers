@@ -1,6 +1,7 @@
 {
   "name": "derp-workers",
   "private": true,
+  "type": "module",
   "scripts": {
     "build:wasm": "bash scripts/build-wasm.sh",
     "dev": "npm run build:wasm && cf dev",
