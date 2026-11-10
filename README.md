@@ -12,15 +12,15 @@ Tailscale client ──WebSocket──▶ Worker ──▶ Durable Object ──
 Tailscale client ──WebSocket────────────────────────────────── packets ──┘
 ```
 
-## What it proves
+## Status
 
-| Question | Answer | Evidence |
+| Capability | Status | Details |
 |---|---|---|
-| Does the official DERP server run in `workerd`? | Yes — compiles to `js/wasm`, initializes in ~200 ms | [M1](docs/milestone-1.md) |
-| Do real clients complete the protocol? | Yes — handshake, ping/pong, forwarding, PeerGone, reconnect | [M2–3](docs/milestone-2-3-validation.md) |
-| Does the browser (tsconnect) stack work? | Yes — the exact `derphttp` + WebSocket path tsconnect uses | [M4](docs/milestone-4.md) |
-| Does it survive on the Free plan? | Yes — 0.6–0.8 ms median CPU per request vs. the 10 ms limit | [Measurements](docs/measurements.md) |
-| Deployed end-to-end, repeatably? | Yes — CI deploys a fresh worker, runs both suites, deletes it | [validate.yml](.github/workflows/validate.yml) |
+| Official DERP server (`tailscale.com/derp/derpserver`) on Workers Free | Runs unmodified, compiles to `js/wasm`, inits in ~200 ms | [M1](docs/milestone-1.md) |
+| Full protocol — handshake, ping/pong, forwarding, PeerGone, reconnect | Working | [M2–3](docs/milestone-2-3-validation.md) |
+| Browser (tsconnect) clients over the real `derphttp` stack | Working | [M4](docs/milestone-4.md) |
+| Production CPU on the Free plan | 0.7 ms frontend / 5.2 ms DO median, zero terminations | [Measurements](docs/measurements.md) |
+| Deployed end-to-end validation in CI | Every push | [validate.yml](.github/workflows/validate.yml) |
 
 ## Quick start
 

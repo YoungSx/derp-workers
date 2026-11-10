@@ -10,15 +10,15 @@ Tailscale クライアント ──WebSocket──▶ Worker ──▶ Durable O
 Tailscale クライアント ──WebSocket──────────────────────────── パケット ──┘
 ```
 
-## 何を証明するか
+## ステータス
 
-| 問題 | 答え | 証拠 |
+| 機能 | 状態 | 詳細 |
 |---|---|---|
-| 公式 DERP サーバーは `workerd` で動くか? | 動く——`js/wasm` にコンパイルされ、初期化は約 200 ms | [M1](milestone-1.md) |
-| 本物のクライアントでプロトコル完走できるか? | できる——ハンドシェイク、ping/pong、転送、PeerGone、再接続 | [M2–3](milestone-2-3-validation.md) |
-| ブラウザ(tsconnect)スタックは動くか? | 動く——tsconnect が使うのと同じ `derphttp` + WebSocket 経路 | [M4](milestone-4.md) |
-| 無料プランで持つか? | 持つ——リクエストあたり中央値 CPU 0.6–0.8 ms、制限は 10 ms | [計測データ](measurements.md) |
-| デプロイ済みでの E2E 検証は再現可能か? | 可能——CI が毎回新しい worker をデプロイし、両スイートを実行して削除 | [validate.yml](../.github/workflows/validate.yml) |
+| 公式 DERP サーバー(`tailscale.com/derp/derpserver`)を Workers Free で実行 | そのまま動作——`js/wasm` にコンパイル、初期化は約 200 ms | [M1](milestone-1.md) |
+| フルプロトコル——ハンドシェイク、ping/pong、転送、PeerGone、再接続 | 動作中 | [M2–3](milestone-2-3-validation.md) |
+| ブラウザ(tsconnect)クライアントが実際の `derphttp` スタックを利用 | 動作中 | [M4](milestone-4.md) |
+| 無料プランでの本番 CPU | フロントエンド中央値 0.7 ms / DO 中央値 5.2 ms、強制終了ゼロ | [計測データ](measurements.md) |
+| CI でのデプロイ E2E 検証 | プッシュごとに実行 | [validate.yml](../.github/workflows/validate.yml) |
 
 ## クイックスタート
 

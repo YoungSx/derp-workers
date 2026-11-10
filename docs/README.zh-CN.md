@@ -10,15 +10,15 @@ Tailscale 客户端 ──WebSocket──▶ Worker ──▶ Durable Object ─
 Tailscale 客户端 ──WebSocket────────────────────────────── 数据包 ──┘
 ```
 
-## 它证明了什么
+## 状态
 
-| 问题 | 答案 | 证据 |
+| 能力 | 状态 | 详情 |
 |---|---|---|
-| 官方 DERP 服务端能在 `workerd` 里跑吗? | 能——编译为 `js/wasm`,约 200 ms 完成初始化 | [M1](milestone-1.md) |
-| 真实客户端能走完协议吗? | 能——握手、ping/pong、转发、PeerGone、重连 | [M2–3](milestone-2-3-validation.md) |
-| 浏览器(tsconnect)协议栈能用吗? | 能——正是 tsconnect 所用的 `derphttp` + WebSocket 路径 | [M4](milestone-4.md) |
-| 免费套餐撑得住吗? | 撑得住——每请求中位 CPU 0.6–0.8 ms,限额 10 ms | [测量数据](measurements.md) |
-| 可重复地部署端到端验证? | 可以——CI 部署全新 worker、跑两套测试、再删除 | [validate.yml](../.github/workflows/validate.yml) |
+| 官方 DERP 服务端(`tailscale.com/derp/derpserver`)跑在 Workers Free 上 | 原样运行,编译为 `js/wasm`,约 200 ms 完成初始化 | [M1](milestone-1.md) |
+| 完整协议——握手、ping/pong、转发、PeerGone、重连 | 可用 | [M2–3](milestone-2-3-validation.md) |
+| 浏览器(tsconnect)客户端走真实 `derphttp` 协议栈 | 可用 | [M4](milestone-4.md) |
+| 免费套餐下的生产 CPU | 前端中位 0.7 ms / DO 中位 5.2 ms,零终止 | [测量数据](measurements.md) |
+| CI 中的部署端到端验证 | 每次 push | [validate.yml](../.github/workflows/validate.yml) |
 
 ## 快速开始
 
