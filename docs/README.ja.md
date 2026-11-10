@@ -2,11 +2,11 @@
 
 **Cloudflare Workers の無料プラン**だけで動く Tailscale 互換 DERP リレー——サーバー不要、コストゼロ。
 
-Tailscale 公式の DERP サーバー実装([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver))をそのまま WebAssembly にコンパイルし、Durable Object 内に組み込んでいます。ネイティブおよびブラウザ版 Tailscale クライアントが WebSocket で接続し、パケットを中継します。使われるのは本物のプロトコルスタックであり、再実装ではありません。
+Tailscale 公式の DERP サーバー実装([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver))をそのまま WebAssembly にコンパイルし、Durable Object 内に組み込んでいます。ブラウザ版 Tailscale クライアント(tsconnect)が WebSocket で接続し、パケットを中継します。使われるのは本物のプロトコルスタックであり、再実装ではありません。
 
 ```
 Tailscale クライアント ──WebSocket──▶ Worker ──▶ Durable Object ──▶ Go/WASM derpserver(未変更)
-   (ネイティブまたは tsconnect)                                              │
+   (ブラウザ tsconnect)                                              │
 Tailscale クライアント ──WebSocket──────────────────────────── パケット ──┘
 ```
 
@@ -52,6 +52,7 @@ docs/                  マイルストーン報告と計測データ
 ## 既知の制限
 
 - **ブラウザクライアントは 32 KiB を超えるフレームを受信できない。** `tailscale.com` の WebSocket ラッパーにおけるアップストリームのバグです([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) で修正済み)。マージされるまでの間も、実際の tailnet トラフィック(約 1.5 KB のパケット)には影響しません。詳細は [M4](milestone-4.md)。
+- **公式のネイティブ `tailscaled` クライアントは接続できない。** ネイティブクライアントは `/derp` へ素の HTTPS ストリームで接続するが、Worker は WebSocket アップグレードしか受け付けない——カスタム DERPMap エントリが有効なのはブラウザ/WASM(tsconnect)クライアント、または `ts_debug_websockets` タグ + `TS_DEBUG_DERP_WS_CLIENT` 環境変数でビルドした tailscaled のみ。リポジトリの「ネイティブスイート」は公式 Go `derp.Client` を Node WebSocket で動かすもので、tailscaled ではない。
 - **`DERP_SERVER_KEY`(64 桁 hex のノード秘密鍵。Worker シークレットとして設定——`cf workers secrets update DERP_SERVER_KEY`)なしではリレーは起動を拒否する。** ローカル開発では決定論的な公開テスト鍵が `.dev.vars` に自動書き込みされる。その鍵のままデプロイすると誰でもリレーになりすませてしまう。probe の `testKey` フィールドが如実に報告する。
 - 各リージョンは独立:それぞれが独自の peer レジストリを持ち、1 つの通信の両 peer は同じリージョンを使う必要がある。リージョン間転送は未対応。
 

@@ -4,11 +4,11 @@ A Tailscale-compatible DERP relay that runs entirely on the **Cloudflare Workers
 
 [简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md) · [日本語](docs/README.ja.md)
 
-It embeds Tailscale's official DERP server implementation ([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver)) unchanged, compiled to WebAssembly, inside a Durable Object. Native and browser Tailscale clients connect to it over WebSocket and exchange packets through it, using the real protocol stack — not a reimplementation.
+It embeds Tailscale's official DERP server implementation ([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver)) unchanged, compiled to WebAssembly, inside a Durable Object. Browser Tailscale clients (tsconnect) connect to it over WebSocket and exchange packets through it, using the real protocol stack — not a reimplementation.
 
 ```
 Tailscale client ──WebSocket──▶ Worker ──▶ Durable Object ──▶ Go/WASM derpserver (unmodified)
-      (native or tsconnect)                                              │
+   (browser tsconnect)                                                   │
 Tailscale client ──WebSocket────────────────────────────────── packets ──┘
 ```
 
@@ -54,6 +54,7 @@ docs/                  milestone reports and measurements
 ## Known limitations
 
 - **Browser clients cannot receive frames over 32 KiB.** An upstream bug in `tailscale.com`'s WebSocket wrapper ([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) fixes it); until it lands, real tailnet traffic (~1.5 KB packets) is unaffected. Details in [M4](docs/milestone-4.md).
+- **Official native `tailscaled` clients cannot connect.** They speak raw HTTPS streaming to `/derp`, while the Worker only accepts WebSocket upgrades — so a custom DERPMap entry works only for browser/WASM (tsconnect) clients, or a tailscaled built with the `ts_debug_websockets` tag plus `TS_DEBUG_DERP_WS_CLIENT`. The repo's "native suite" is the official Go `derp.Client` over Node WebSocket, not tailscaled.
 - **The relay refuses to run without `DERP_SERVER_KEY`** (a 64-hex-char node private key, set as a Worker secret — `cf workers secrets update DERP_SERVER_KEY`). Local dev bootstraps the deterministic public test key into `.dev.vars` automatically; deploying that key would let anyone impersonate the relay. The probe reports `testKey` accordingly.
 - Regions are independent: each has its own peer registry, and both peers of a conversation must use the same one. There is no inter-region forwarding yet.
 

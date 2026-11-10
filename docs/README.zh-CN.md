@@ -2,11 +2,11 @@
 
 一个完全跑在 **Cloudflare Workers 免费套餐**上的 Tailscale 兼容 DERP 中继——没有服务器,零成本。
 
-它把 Tailscale 官方 DERP 服务端实现([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver))原封不动编译成 WebAssembly,嵌入 Durable Object。原生和浏览器版 Tailscale 客户端通过 WebSocket 连接并经由它转发数据包,走的是真实协议栈——不是重新实现。
+它把 Tailscale 官方 DERP 服务端实现([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver))原封不动编译成 WebAssembly,嵌入 Durable Object。浏览器版 Tailscale 客户端(tsconnect)通过 WebSocket 连接并经由它转发数据包,走的是真实协议栈——不是重新实现。
 
 ```
 Tailscale 客户端 ──WebSocket──▶ Worker ──▶ Durable Object ──▶ Go/WASM derpserver(未修改)
-    (原生或 tsconnect)                                                  │
+    (浏览器 tsconnect)                                                  │
 Tailscale 客户端 ──WebSocket────────────────────────────── 数据包 ──┘
 ```
 
@@ -52,6 +52,7 @@ docs/                  里程碑报告与测量数据
 ## 已知限制
 
 - **浏览器客户端收不了超过 32 KiB 的帧。** 这是 `tailscale.com` WebSocket 包装层的上游 bug([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) 已修复该问题);在合入之前,真实 tailnet 流量(约 1.5 KB 的包)不受影响。详见 [M4](milestone-4.md)。
+- **官方原生 `tailscaled` 客户端连不上。** 原生客户端对 `/derp` 走裸 HTTPS 流,而 Worker 只接受 WebSocket 升级——自定义 DERPMap 条目只对浏览器/WASM(tsconnect)客户端生效,或对带 `ts_debug_websockets` 标签 + `TS_DEBUG_DERP_WS_CLIENT` 环境变量编译的 tailscaled 生效。仓库里的"原生套件"是官方 Go `derp.Client` 走 Node WebSocket,不是 tailscaled。
 - **没有 `DERP_SERVER_KEY`(64 位 hex 的节点私钥,以 Worker secret 设置——`cf workers secrets update DERP_SERVER_KEY`)时中继拒绝运行。** 本地开发会自动把确定性公开测试密钥写进 `.dev.vars`;部署那个密钥会让任何人都能冒充该中继。probe 的 `testKey` 字段会如实报告。
 - 各区域相互独立:每个区域有自己的 peer 注册表,一次通信的两个 peer 必须使用同一区域。暂无跨区域转发。
 
