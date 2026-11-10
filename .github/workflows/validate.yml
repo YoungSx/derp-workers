@@ -44,9 +44,11 @@ jobs:
 
       - name: Deploy temporary worker
         id: deploy
+        env:
+          DERP_WORKER_NAME: derp-workers-validate
         run: |
           set -o pipefail
-          deploy() { npx wrangler deploy --name derp-workers-validate 2>&1 | tee /tmp/deploy.log; }
+          deploy() { npx cf deploy 2>&1 | tee /tmp/deploy.log; }
           # a just-uploaded script can briefly 404 on the beta workers API; retry once
           deploy || deploy
           URL=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)
@@ -61,4 +63,4 @@ jobs:
 
       - name: Delete temporary worker
         if: always() && steps.deploy.outcome == 'success'
-        run: npx wrangler delete derp-workers-validate --force
+        run: npx cf workers delete derp-workers-validate --force

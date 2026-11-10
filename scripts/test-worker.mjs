@@ -4,7 +4,10 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const port = 8797;
 const remote = process.argv.includes("--remote");
-const server = spawn("npx", ["wrangler", "dev", ...(remote ? ["--remote"] : ["--local"]), "--port", String(port), "--inspector-port", "0"], {
+// cf dev is the primary local server; remote dev still needs wrangler.
+const server = spawn("npx", remote
+  ? ["wrangler", "dev", "--remote", "--port", String(port), "--inspector-port", "0"]
+  : ["cf", "dev", "--port", String(port), "--", "--inspector-port", "0"], {
   stdio: ["ignore", "pipe", "pipe"],
   detached: true,
 });

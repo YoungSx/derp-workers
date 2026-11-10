@@ -63,7 +63,7 @@ const staticServer = await serveStatic();
 let wrangler = null;
 let wranglerOutput = "";
 if (!remoteBase) {
-  wrangler = spawn("npx", ["wrangler", "dev", "--local", "--port", String(derpPort), "--inspector-port", "0"], {
+  wrangler = spawn("npx", ["cf", "dev", "--port", String(derpPort), "--", "--inspector-port", "0"], {
     stdio: ["ignore", "pipe", "pipe"], detached: true,
   });
   wrangler.stdout.on("data", (chunk) => { wranglerOutput += chunk; });
