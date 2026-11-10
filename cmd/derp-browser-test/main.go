@@ -32,11 +32,31 @@ func connect(ctx context.Context, url string, k key.NodePrivate) (*derphttp.Clie
 	if err != nil {
 		return nil, err
 	}
-	if err := client.Connect(ctx); err != nil {
-		client.Close()
-		return nil, err
+	// A freshly deployed workers.dev route can briefly 404 per-colo while
+	// it propagates; retry the dial a few times before giving up.
+	var lastErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				client.Close()
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(attempt) * 500 * time.Millisecond):
+			}
+		}
+		if err := client.Connect(ctx); err == nil {
+			return client, nil
+		} else {
+			lastErr = err
+			client.Close()
+			client, err = derphttp.NewClient(k, url, logf, netmon.NewStatic())
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	return client, nil
+	client.Close()
+	return nil, lastErr
 }
 
 type receiver struct {
