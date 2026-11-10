@@ -1,17 +1,64 @@
 # derp-workers
 
-PoC for running Tailscale's official DERP server as Go `js/wasm` inside a Cloudflare Durable Object, relayed over WebSockets, and tested against both native and browser WASM Tailscale clients.
+A Tailscale-compatible DERP relay that runs entirely on the **Cloudflare Workers Free plan** — no servers, no cost.
+
+[简体中文](docs/README.zh-CN.md) · [繁體中文](docs/README.zh-TW.md) · [日本語](docs/README.ja.md)
+
+It embeds Tailscale's official DERP server implementation ([`tailscale.com/derp/derpserver`](https://pkg.go.dev/tailscale.com/derp/derpserver)) unchanged, compiled to WebAssembly, inside a Durable Object. Native and browser Tailscale clients connect to it over WebSocket and exchange packets through it, using the real protocol stack — not a reimplementation.
+
+```
+Tailscale client ──WebSocket──▶ Worker ──▶ Durable Object ──▶ Go/WASM derpserver (unmodified)
+      (native or tsconnect)                                              │
+Tailscale client ──WebSocket────────────────────────────────── packets ──┘
+```
+
+## What it proves
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Does the official DERP server run in `workerd`? | Yes — compiles to `js/wasm`, initializes in ~200 ms | [M1](docs/milestone-1.md) |
+| Do real clients complete the protocol? | Yes — handshake, ping/pong, forwarding, PeerGone, reconnect | [M2–3](docs/milestone-2-3-validation.md) |
+| Does the browser (tsconnect) stack work? | Yes — the exact `derphttp` + WebSocket path tsconnect uses | [M4](docs/milestone-4.md) |
+| Does it survive on the Free plan? | Yes — 0.6–0.8 ms median CPU per request vs. the 10 ms limit | [Measurements](docs/measurements.md) |
+| Deployed end-to-end, repeatably? | Yes — CI deploys a fresh worker, runs both suites, deletes it | [validate.yml](.github/workflows/validate.yml) |
+
+## Quick start
 
 ```sh
 npm install
-npm run test:wasm-worker   # official native Go DERP client suite over local workerd
-npm run test:browser       # official browser Go/WASM client suite in headless Chromium
+npm run test:wasm-worker   # official native DERP client suite over local workerd
+npm run test:browser       # official browser WASM client suite in headless Chromium
 ```
 
-Status by milestone:
+To test against your own deployed worker:
 
-- [Milestone 1](docs/milestone-1.md) — `derpserver` compiles to `js/wasm` and initializes in `workerd`.
-- [Milestones 2–3](docs/milestone-2-3-validation.md) — DO + WebSocket bridge, native-client protocol suite (local and deployed), dual-client forwarding.
-- [Milestone 4](docs/milestone-4.md) — browser WASM client suite, throughput, and resource measurements.
+```sh
+npx wrangler deploy
+CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
+  BROWSER_BIN=/path/to/chromium npm run test:browser
+```
 
-The server key in this repo is deterministic test data and is not suitable for deployment.
+CI needs `CLOUDFLARE_API_TOKEN` (secret) and `CLOUDFLARE_ACCOUNT_ID` (variable).
+
+## Repository layout
+
+```
+cmd/derp-wasm/         the Go/WASM DERP server (syscall/js bridge, net.Conn adapter)
+cmd/derp-client-test/  native client suite (official derp.Client over Node WebSocket)
+cmd/derp-browser-test/ browser client suite (official derphttp, js/wasm, probe.html)
+src/index.js           Worker entry + Durable Object WebSocket bridge
+scripts/               build + test drivers
+docs/                  milestone reports and measurements
+```
+
+## Known limitations
+
+- **Browser clients cannot receive frames over 32 KiB.** An upstream bug in `tailscale.com`'s WebSocket wrapper ([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) fixes it); until it lands, real tailnet traffic (~1.5 KB packets) is unaffected. Details in [M4](docs/milestone-4.md).
+- **The server key in this repo is deterministic test data.** Deploying it as-is would let anyone impersonate the relay. Generate your own before any real use.
+- Single region, single Durable Object; not a production mesh.
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md) — how the Go server, `syscall/js` bridge, and WebSocket adapter fit together
+- [docs/measurements.md](docs/measurements.md) — throughput, memory, and production CPU time
+- [docs/milestone-1.md](docs/milestone-1.md) · [docs/milestone-2-3-validation.md](docs/milestone-2-3-validation.md) · [docs/milestone-4.md](docs/milestone-4.md) — validation reports
