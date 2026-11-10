@@ -39,7 +39,7 @@ The remote test repeated the official DERP client suite, invalid subprotocol, un
 
 The remote `performance.now()` measurement had millisecond-level resolution and reported 0 ms for WASM initialization after the isolate was already warm. Do not interpret that as zero-cost WASM startup. The account's plan tier was not exposed by Wrangler's account summary, so this does not independently prove the account was on Workers Free. The configured SQLite DO binding is compatible with Free; the deployed account's billing tier and actual CPU/billing metrics remain unverified.
 
-The temporary Worker was removed after testing. Its published test key is deterministic and unsuitable for deployment. The Worker has no client authorization; it must not be left online as a public relay.
+The temporary Worker was removed after testing. Its published test key is deterministic and unsuitable for deployment (see [key injection](README.md) in the build script). The Worker has no client authorization; it must not be left online as a public relay. Production CPU time and cost metrics — the billing-tier caveat above — were later measured on a deployed worker; see [measurements.md](measurements.md).
 
 ## Remaining scope and risks
 
