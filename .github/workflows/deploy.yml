@@ -1,0 +1,89 @@
+name: deploy
+
+# Production deployment: the only job allowed to touch live resources, and it
+# only writes the production Worker. Verification is built in — after
+# deploying, the full suites run against the production URL (read-only: they
+# open connections and relay test packets; they never mutate the account).
+# Validation CI (validate.yml) never touches the account at all.
+#
+# Manual dispatch is the confirmation itself; add `environment: production`
+# with a required reviewer to require an explicit approval step as well.
+# On failure the deployed version stays up — roll back manually with
+# `npx wrangler rollback derp-workers`.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build server and browser WASM
+        run: |
+          npm run build:wasm
+          GOOS=js GOARCH=wasm go build -trimpath -o cmd/derp-browser-test/derp-browser.wasm ./cmd/derp-browser-test
+
+      - name: Install Chrome
+        run: |
+          npx --yes @puppeteer/browsers install chrome@stable --path "$RUNNER_TEMP/chrome" > /dev/null
+          echo "BROWSER_BIN=$(find "$RUNNER_TEMP/chrome" -type f -name chrome | head -1)" >> "$GITHUB_ENV"
+
+      - name: Deploy production worker
+        id: deploy
+        env:
+          DERP_SERVER_KEY: ${{ secrets.DERP_SERVER_KEY }}
+        run: |
+          set -o pipefail
+          if [ -z "$DERP_SERVER_KEY" ]; then
+            echo "secret DERP_SERVER_KEY is not set: refuse to deploy an impersonatable test-key relay" >&2
+            exit 1
+          fi
+          printf 'DERP_SERVER_KEY=%s\n' "$DERP_SERVER_KEY" > /tmp/secrets.env
+          npx cf deploy 2>&1 | tee /tmp/deploy.log
+          URL=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)
+          if [ -z "$URL" ]; then echo "no workers.dev URL in deploy output" >&2; exit 1; fi
+          echo "CF_DERP_BASE_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Health check
+        run: |
+          URL="$CF_DERP_BASE_URL/derp/probe"
+          for i in $(seq 1 6); do
+            probe=$(curl -s -m 10 "$URL") && [ -n "$probe" ] && break
+            sleep 10
+          done
+          echo "$probe"
+          echo "$probe" | python3 -c '
+import json, sys
+p = json.load(sys.stdin)
+if not p.get("ready"): sys.exit(f"not ready: {p}")
+if p.get("testKey"): sys.exit("production deploys must use a real DERP_SERVER_KEY, not the public test key")
+print("production relay healthy, real key")'
+
+      # Read-only suites against the production relay: the deployed-path check
+      # lives with the deploy, not in per-push CI.
+      - name: Native client suite (deployed)
+        run: node scripts/test-cloudflare.mjs
+
+      - name: Browser WASM client suite (deployed)
+        run: node scripts/test-browser.mjs

@@ -18,7 +18,7 @@ Tailscale 用戶端 ──WebSocket───────────────
 | 完整協定——交握、ping/pong、轉送、PeerGone、重連 | 可用 | [M2–3](milestone-2-3-validation.md) |
 | 瀏覽器(tsconnect)用戶端走真實 `derphttp` 協定堆疊 | 可用 | [M4](milestone-4.md) |
 | 免費方案下的生產 CPU | 前端中位數 0.7 ms / DO 中位數 5.2 ms,零終止 | [測量數據](measurements.md) |
-| CI 中的部署端到端驗證 | 每次 push | [validate.yml](../.github/workflows/validate.yml) |
+| CI 驗證(本地 workerd,零帳號存取) | 每次 push | [validate.yml](../.github/workflows/validate.yml) |
 
 ## 快速開始
 
@@ -36,7 +36,7 @@ CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```
 
-CI 需要 `CLOUDFLARE_API_TOKEN`(secret)和 `CLOUDFLARE_ACCOUNT_ID`(變數)。
+Push CI 純本地驗證,零 Cloudflare 帳號存取。生產部署走手動工作流 [deploy.yml](../.github/workflows/deploy.yml):需要 `CLOUDFLARE_API_TOKEN`(secret)、`CLOUDFLARE_ACCOUNT_ID`(變數)和真實的 `DERP_SERVER_KEY` secret(拒絕公開測試金鑰),部署後對生產中繼跑唯讀全套件。
 
 ## 儲存庫結構
 

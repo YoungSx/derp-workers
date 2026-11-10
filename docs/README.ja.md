@@ -18,7 +18,7 @@ Tailscale クライアント ──WebSocket────────────
 | フルプロトコル——ハンドシェイク、ping/pong、転送、PeerGone、再接続 | 動作中 | [M2–3](milestone-2-3-validation.md) |
 | ブラウザ(tsconnect)クライアントが実際の `derphttp` スタックを利用 | 動作中 | [M4](milestone-4.md) |
 | 無料プランでの本番 CPU | フロントエンド中央値 0.7 ms / DO 中央値 5.2 ms、強制終了ゼロ | [計測データ](measurements.md) |
-| CI でのデプロイ E2E 検証 | プッシュごとに実行 | [validate.yml](../.github/workflows/validate.yml) |
+| CI 検証(ローカル workerd、アカウントへのアクセスなし) | プッシュごとに実行 | [validate.yml](../.github/workflows/validate.yml) |
 
 ## クイックスタート
 
@@ -36,7 +36,7 @@ CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```
 
-CI には `CLOUDFLARE_API_TOKEN`(secret)と `CLOUDFLARE_ACCOUNT_ID`(変数)が必要です。
+Push の CI はローカルのみで検証し、Cloudflare アカウントにはアクセスしない。本番デプロイは手動ワークフロー [deploy.yml](../.github/workflows/deploy.yml) で行う:`CLOUDFLARE_API_TOKEN`(secret)、`CLOUDFLARE_ACCOUNT_ID`(変数)、本物の `DERP_SERVER_KEY` secret(公開テスト鍵は拒否)が必要で、デプロイ後に本番リレーへ読み取り専用のフルスイートを実行する。
 
 ## リポジトリ構成
 

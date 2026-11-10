@@ -20,7 +20,7 @@ Tailscale client ──WebSocket────────────────
 | Full protocol — handshake, ping/pong, forwarding, PeerGone, reconnect | Working | [M2–3](docs/milestone-2-3-validation.md) |
 | Browser (tsconnect) clients over the real `derphttp` stack | Working | [M4](docs/milestone-4.md) |
 | Production CPU on the Free plan | 0.7 ms frontend / 5.2 ms DO median, zero terminations | [Measurements](docs/measurements.md) |
-| Deployed end-to-end validation in CI | Every push | [validate.yml](.github/workflows/validate.yml) |
+| Validation in CI (local workerd, no account access) | Every push | [validate.yml](.github/workflows/validate.yml) |
 
 ## Quick start
 
@@ -38,7 +38,7 @@ CF_DERP_BASE_URL=https://<your-worker>.<your-subdomain>.workers.dev \
   BROWSER_BIN=/path/to/chromium npm run test:browser
 ```
 
-CI needs `CLOUDFLARE_API_TOKEN` (secret) and `CLOUDFLARE_ACCOUNT_ID` (variable).
+Push CI validates locally with no Cloudflare account access. Production deploys run as a manual workflow — [deploy.yml](.github/workflows/deploy.yml) — that needs `CLOUDFLARE_API_TOKEN` (secret), `CLOUDFLARE_ACCOUNT_ID` (variable), and a real `DERP_SERVER_KEY` secret (it refuses the public test key), and runs the full read-only suites against the production relay after deploying.
 
 ## Repository layout
 
