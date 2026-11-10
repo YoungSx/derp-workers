@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
 import { connect } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
+import { ensureDevVars } from "./dev-vars.mjs";
 
 const port = 8797;
 const remote = process.argv.includes("--remote");
+if (!remote) ensureDevVars();
 // cf dev is the primary local server; remote dev still needs wrangler.
 const server = spawn("npx", remote
   ? ["wrangler", "dev", "--remote", "--port", String(port), "--inspector-port", "0"]

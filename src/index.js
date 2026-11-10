@@ -5,6 +5,10 @@ import wasmModule from "../artifacts/derp.wasm";
 const socketAdapters = new Map();
 let goRuntimePromise;
 
+// The key-less build default: documented, deterministic test data. Deploying a
+// relay with it lets anyone impersonate it — set the DERP_SERVER_KEY secret.
+const TEST_KEY_HEX = "0101010101010101010101010101010101010101010101010101010101010101";
+
 globalThis.derpSocketSend = (id, data) => {
   const socket = socketAdapters.get(id);
   if (!socket) throw new Error("DERP WebSocket is closed");
@@ -13,16 +17,24 @@ globalThis.derpSocketSend = (id, data) => {
 };
 globalThis.derpSocketTerminate = (id) => socketAdapters.get(id)?.close(1000, "DERP connection closed");
 
-function startDerpServer() {
+function startDerpServer(keyHex) {
   if (!goRuntimePromise) {
     goRuntimePromise = new Promise((resolve, reject) => {
       const go = new Go();
       const startedAt = performance.now();
       const timer = setTimeout(() => reject(new Error("Go DERP initialization timed out")), 10000);
       globalThis.derpWasmNotify = () => {
+        // The wasm registers its callbacks before notifying; the server key is
+        // a runtime input, so install it now, before any connection.
+        if (!globalThis.derpSetServerKey(keyHex)) {
+          clearTimeout(timer);
+          reject(new Error("DERP_SERVER_KEY must be 64 hex chars (node private key)"));
+          return;
+        }
         clearTimeout(timer);
         resolve({
           serverKey: globalThis.derpServerKey,
+          testKey: keyHex === TEST_KEY_HEX,
           initializationMs: Number((performance.now() - startedAt).toFixed(2)),
         });
       };
@@ -40,6 +52,7 @@ function startDerpServer() {
 export class DerpRegion extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
+    this.env = env;
     this.sockets = new Map();
   }
 
@@ -47,11 +60,17 @@ export class DerpRegion extends DurableObject {
     const path = new URL(request.url).pathname;
     if (path === "/derp/probe") {
       try {
-        const { serverKey, initializationMs } = await startDerpServer();
+        const keyHex = this.env.DERP_SERVER_KEY;
+        // No silent test-key fallback: an unset key must fail loudly, not
+        // deploy an impersonatable relay.
+        if (!/^[0-9a-fA-F]{64}$/.test(keyHex ?? "")) {
+          throw new Error("DERP_SERVER_KEY is not set; provide a 64-hex-char node private key (Worker secret, or .dev.vars for local dev)");
+        }
+        const { serverKey, testKey, initializationMs } = await startDerpServer(keyHex);
         return Response.json({
           ready: true,
           serverKey,
-          testKey: globalThis.derpServerKeyIsTestKey,
+          testKey,
           initializationMs,
           connections: globalThis.derpServerConnectionCount(),
           goMem: globalThis.derpServerMemStats(),
@@ -66,8 +85,12 @@ export class DerpRegion extends DurableObject {
 
     const protocols = (request.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((p) => p.trim());
     if (!protocols.includes("derp")) return new Response("DERP subprotocol required", { status: 400 });
+    const keyHex = this.env.DERP_SERVER_KEY;
+    if (!/^[0-9a-fA-F]{64}$/.test(keyHex ?? "")) {
+      return new Response("DERP server unavailable: DERP_SERVER_KEY is not set", { status: 503 });
+    }
     try {
-      await startDerpServer();
+      await startDerpServer(keyHex);
     } catch (error) {
       return new Response(`DERP server unavailable: ${error}`, { status: 503 });
     }

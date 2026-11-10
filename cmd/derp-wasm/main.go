@@ -16,27 +16,34 @@ import (
 	"tailscale.com/types/key"
 )
 
-// serverKeyHex is overridden at build time via
-//   go build -ldflags "-X main.serverKeyHex=<64 hex chars>"
-// The default is deterministic test data: any relay built with it can be
-// impersonated, so deployments MUST inject their own key.
-var serverKeyHex = "0101010101010101010101010101010101010101010101010101010101010101"
-
 func main() {
-	privateKey, err := key.ParseNodePrivateUntyped(mem.S(serverKeyHex))
-	if err != nil {
-		panic(err)
-	}
-	server := derpserver.New(privateKey, func(format string, args ...any) {
-		fmt.Printf(format+"\n", args...)
-	})
 	connections := map[string]*workerConn{}
 	var connectionsMu sync.Mutex
+	var server *derpserver.Server
 	register := func(name string, fn func(js.Value, []js.Value) any) {
 		js.Global().Set(name, js.FuncOf(fn))
 	}
+	logf := func(format string, args ...any) {
+		fmt.Printf(format+"\n", args...)
+	}
+	// derpSetServerKey installs the server's long-term identity. The key is a
+	// runtime input (a Worker secret): a serverless relay must not regenerate
+	// its key per isolate, so JS passes DERP_SERVER_KEY in before any
+	// connection is accepted. Until then derpSocketOpen fails.
+	register("derpSetServerKey", func(_ js.Value, args []js.Value) any {
+		if len(args) != 1 || server != nil {
+			return false
+		}
+		privateKey, err := key.ParseNodePrivateUntyped(mem.S(args[0].String()))
+		if err != nil {
+			return false
+		}
+		server = derpserver.New(privateKey, logf)
+		js.Global().Set("derpServerKey", privateKey.Public().String())
+		return true
+	})
 	register("derpSocketOpen", func(_ js.Value, args []js.Value) any {
-		if len(args) != 2 {
+		if len(args) != 2 || server == nil {
 			return false
 		}
 		id, remoteAddr := args[0].String(), args[1].String()
@@ -97,9 +104,6 @@ func main() {
 		}
 	})
 
-	js.Global().Set("derpServerKey", privateKey.Public().String())
-	js.Global().Set("derpServerKeyIsTestKey", serverKeyHex == "0101010101010101010101010101010101010101010101010101010101010101")
-	js.Global().Set("derpServerReady", server != nil)
 	wake := make(chan struct{})
 	js.Global().Get("derpWasmNotify").Invoke()
 	<-wake

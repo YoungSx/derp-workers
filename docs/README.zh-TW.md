@@ -52,7 +52,7 @@ docs/                  里程碑報告與測量數據
 ## 已知限制
 
 - **瀏覽器用戶端收不了超過 32 KiB 的幀。** 這是 `tailscale.com` WebSocket 包裝層的上游 bug([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) 已修復該問題);在合入之前,真實 tailnet 流量(約 1.5 KB 的封包)不受影響。詳見 [M4](milestone-4.md)。
-- **儲存庫裡的伺服器金鑰是確定性測試資料。** 直接部署會讓任何人都能冒充該中繼。任何真實用途前請產生自己的金鑰。
+- **沒有 `DERP_SERVER_KEY`(64 位 hex 的節點私鑰,以 Worker secret 設定——`cf workers secrets update DERP_SERVER_KEY`)時中繼拒絕運行。** 本地開發會自動把確定性公開測試金鑰寫進 `.dev.vars`;部署那個金鑰會讓任何人都能冒充該中繼。probe 的 `testKey` 欄位會如實回報。
 - 各區域相互獨立:每個區域有自己的 peer 註冊表,一次通訊的兩個 peer 必須使用同一區域。暫無跨區域轉發。
 
 ## 文件

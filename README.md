@@ -54,7 +54,7 @@ docs/                  milestone reports and measurements
 ## Known limitations
 
 - **Browser clients cannot receive frames over 32 KiB.** An upstream bug in `tailscale.com`'s WebSocket wrapper ([tailscale/tailscale#22293](https://github.com/tailscale/tailscale/pull/22293) fixes it); until it lands, real tailnet traffic (~1.5 KB packets) is unaffected. Details in [M4](docs/milestone-4.md).
-- **The server key in this repo is deterministic test data.** Deploying it as-is would let anyone impersonate the relay. Generate your own before any real use.
+- **The relay refuses to run without `DERP_SERVER_KEY`** (a 64-hex-char node private key, set as a Worker secret — `cf workers secrets update DERP_SERVER_KEY`). Local dev bootstraps the deterministic public test key into `.dev.vars` automatically; deploying that key would let anyone impersonate the relay. The probe reports `testKey` accordingly.
 - Regions are independent: each has its own peer registry, and both peers of a conversation must use the same one. There is no inter-region forwarding yet.
 
 ## Documentation

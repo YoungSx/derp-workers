@@ -5,3 +5,4 @@
 /node_modules/
 /.wrangler/
 .cloudflare/
+.dev.vars

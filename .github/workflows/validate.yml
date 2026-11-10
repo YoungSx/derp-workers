@@ -48,7 +48,9 @@ jobs:
           DERP_WORKER_NAME: derp-workers-validate
         run: |
           set -o pipefail
-          deploy() { npx cf deploy 2>&1 | tee /tmp/deploy.log; }
+          # the validate copy runs on the deterministic public test key
+          printf 'DERP_SERVER_KEY=0101010101010101010101010101010101010101010101010101010101010101\n' > /tmp/secrets.env
+          deploy() { npx cf deploy --secrets-file /tmp/secrets.env 2>&1 | tee /tmp/deploy.log; }
           # a just-uploaded script can briefly 404 on the beta workers API; retry once
           deploy || deploy
           URL=$(grep -oE 'https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)

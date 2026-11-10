@@ -10,6 +10,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createServer } from "node:http";
 import { copyFile, readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
+import { ensureDevVars } from "./dev-vars.mjs";
 import { launch as launchBrowser } from "puppeteer-core";
 
 const repo = new URL("..", import.meta.url).pathname;
@@ -63,6 +64,7 @@ const staticServer = await serveStatic();
 let wrangler = null;
 let wranglerOutput = "";
 if (!remoteBase) {
+  ensureDevVars();
   wrangler = spawn("npx", ["cf", "dev", "--port", String(derpPort), "--", "--inspector-port", "0"], {
     stdio: ["ignore", "pipe", "pipe"], detached: true,
   });
